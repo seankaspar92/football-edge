@@ -29,8 +29,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - - name: Checkout
+  uses: actions/checkout@v6
+  with:
+    ref: main
+    fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -46,13 +49,27 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: python -m src.pipeline
 
-      - name: Save refreshed data
-        run: |
-          git config user.name "nfl-edge-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add data/ site/
-          git diff --cached --quiet || git commit -m "Automated NFL EDGE refresh"
-          git push
+      - - name: - name: Save refreshed data
+  shell: bash
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    git add data/ site/
+
+    if git diff --cached --quiet; then
+      echo "No refreshed data changes to commit."
+      exit 0
+    fi
+
+    git commit -m "Automated NFL EDGE refresh"
+
+    echo "Syncing with latest main..."
+    git fetch origin main
+    git rebase origin/main
+
+    echo "Pushing refreshed NFL EDGE data..."
+    git push origin HEAD:main
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
