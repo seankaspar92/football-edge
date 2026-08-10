@@ -1,0 +1,67 @@
+name: NFL EDGE Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
+      timezone: "America/Chicago"
+    - cron: "17 17 * * 4"
+      timezone: "America/Chicago"
+    - cron: "17 8,10,11,14,17 * * 0"
+      timezone: "America/Chicago"
+    - cron: "17 17 * * 1"
+      timezone: "America/Chicago"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: nfl-edge-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run NFL EDGE pipeline
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python -m src.pipeline
+
+      - name: Save refreshed data
+        run: |
+          git config user.name "nfl-edge-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/ site/
+          git diff --cached --quiet || git commit -m "Automated NFL EDGE refresh"
+          git push
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
